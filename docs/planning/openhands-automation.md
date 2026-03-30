@@ -12,6 +12,8 @@ It can also be started manually with `workflow_dispatch` by passing an issue num
 
 ## Required GitHub configuration
 
+The repository/account must be able to run GitHub Actions jobs. If Actions are blocked at the account level, labeling issues will not start OpenHands.
+
 Add this repository secret:
 - `OPENHANDS_API_KEY` — API key for the OpenHands instance
 

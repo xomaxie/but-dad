@@ -29,6 +29,10 @@ This repo includes the same OpenHands issue automation pattern used in the other
 
 See `docs/planning/openhands-automation.md` for setup details.
 
+External prerequisites still apply:
+- GitHub Actions must be enabled and able to run for the repository/account.
+- `OPENHANDS_API_KEY` must be configured in repository secrets.
+
 ## Local development
 
 ```bash
