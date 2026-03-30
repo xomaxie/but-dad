@@ -19,6 +19,10 @@ permissions:
   pull-requests: write
   issues: write
 
+concurrency:
+  group: openhands-${{ github.event.issue.number || inputs.issue_number || github.run_id }}
+  cancel-in-progress: false
+
 jobs:
   resolve:
     runs-on: ubuntu-latest
@@ -34,22 +38,62 @@ jobs:
             if (eventName === 'workflow_dispatch') {
               shouldRun = true;
             } else if (eventName === 'issues') {
-              shouldRun = context.payload.label?.name === 'openhands';
+              const labelName = String(context.payload.label?.name || '').trim().toLowerCase();
+              shouldRun = labelName === 'openhands';
             } else if (eventName === 'issue_comment') {
-              const body = context.payload.comment?.body || '';
+              const body = String(context.payload.comment?.body || '').trim().toLowerCase();
               shouldRun = body.startsWith('@openhands');
             }
 
             core.setOutput('should_run', shouldRun ? 'true' : 'false');
 
-      - name: Check out repository
+      - name: Check OpenHands configuration
         if: steps.gate.outputs.should_run == 'true'
+        id: config
+        shell: bash
+        env:
+          OPENHANDS_API_KEY: ${{ secrets.OPENHANDS_API_KEY }}
+          OPENHANDS_BASE_URL: ${{ vars.OPENHANDS_BASE_URL }}
+        run: |
+          if [[ -z "${OPENHANDS_API_KEY}" ]]; then
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
+            echo 'message=Missing repository secret OPENHANDS_API_KEY.' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          base_url="${OPENHANDS_BASE_URL:-https://app.all-hands.dev}"
+          echo 'ready=true' >> "$GITHUB_OUTPUT"
+          echo "base_url=${base_url}" >> "$GITHUB_OUTPUT"
+          echo 'message=OpenHands configuration looks ready.' >> "$GITHUB_OUTPUT"
+
+      - name: Comment when OpenHands config is missing
+        if: steps.gate.outputs.should_run == 'true' && steps.config.outputs.ready != 'true' && github.event_name != 'workflow_dispatch'
+        uses: actions/github-script@v7
+        env:
+          CONFIG_MESSAGE: ${{ steps.config.outputs.message }}
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.issue.number,
+              body: [
+                '⚠️ OpenHands could not start for this issue.',
+                '',
+                process.env.CONFIG_MESSAGE || 'Repository configuration is incomplete.',
+                '',
+                'Add the `OPENHANDS_API_KEY` repository secret, then label the issue again with `OpenHands` or comment with `@openhands`.',
+              ].join('\n'),
+            });
+
+      - name: Check out repository
+        if: steps.gate.outputs.should_run == 'true' && steps.config.outputs.ready == 'true'
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Build OpenHands prompt from issue context
-        if: steps.gate.outputs.should_run == 'true'
+        if: steps.gate.outputs.should_run == 'true' && steps.config.outputs.ready == 'true'
         id: prompt
         uses: actions/github-script@v7
         with:
@@ -147,31 +191,31 @@ jobs:
             core.setOutput('default_branch', defaultBranch);
 
       - name: Set up Python
-        if: steps.gate.outputs.should_run == 'true'
+        if: steps.gate.outputs.should_run == 'true' && steps.config.outputs.ready == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
       - name: Install OpenHands workflow deps
-        if: steps.gate.outputs.should_run == 'true'
+        if: steps.gate.outputs.should_run == 'true' && steps.config.outputs.ready == 'true'
         run: python -m pip install --upgrade pip requests
 
       - name: Start OpenHands
-        if: steps.gate.outputs.should_run == 'true'
+        if: steps.gate.outputs.should_run == 'true' && steps.config.outputs.ready == 'true'
         id: openhands
         env:
           OPENHANDS_API_KEY: ${{ secrets.OPENHANDS_API_KEY }}
           INPUT_PROMPT: ${{ steps.prompt.outputs.prompt_path }}
           INPUT_REPOSITORY: ${{ github.repository }}
           INPUT_SELECTED_BRANCH: ${{ steps.prompt.outputs.default_branch }}
-          INPUT_BASE_URL: ${{ vars.OPENHANDS_BASE_URL }}
+          INPUT_BASE_URL: ${{ steps.config.outputs.base_url }}
           INPUT_POLL: 'true'
           INPUT_TIMEOUT: '1800'
           INPUT_INTERVAL: '30'
         run: python .github/scripts/openhands_run.py
 
       - name: Comment on issue with OpenHands run link
-        if: steps.gate.outputs.should_run == 'true' && github.event_name != 'workflow_dispatch'
+        if: steps.gate.outputs.should_run == 'true' && steps.config.outputs.ready == 'true' && github.event_name != 'workflow_dispatch'
         uses: actions/github-script@v7
         env:
           CONVERSATION_URL: ${{ steps.openhands.outputs.conversation-url }}

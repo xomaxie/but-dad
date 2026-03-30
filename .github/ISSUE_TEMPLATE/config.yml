@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: OpenHands trigger instructions
+    url: https://github.com/xomaxie/but-dad/blob/main/docs/planning/openhands-automation.md
+    about: Read how to trigger OpenHands by label or issue comment.

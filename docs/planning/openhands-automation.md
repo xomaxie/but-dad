@@ -5,7 +5,7 @@ This repository includes a GitHub Actions workflow at `.github/workflows/openhan
 ## Trigger modes
 
 The workflow starts OpenHands when either of these happens:
-- an issue is labeled `openhands`
+- an issue is labeled `OpenHands`
 - a new issue comment starts with `@openhands`
 
 It can also be started manually with `workflow_dispatch` by passing an issue number.
@@ -27,8 +27,19 @@ Optional repository variable:
 3. Starts an OpenHands conversation for the repository.
 4. Posts a status comment back on the issue with the conversation link.
 
+## Expected repo setup
+
+For the easiest flow later:
+1. open or create an issue
+2. use the **Spec loop task** issue template if it fits
+3. add the `OpenHands` label to start automation
+4. steer the run by commenting with `@openhands ...` if needed
+
+If the `OPENHANDS_API_KEY` secret is missing, the workflow will comment on the issue and explain what needs to be configured.
+
 ## Notes
 
+- The workflow accepts the `OpenHands` label regardless of case.
 - The workflow is biased toward small, issue-focused changes.
 - Planning issues should result in planning/docs work first, matching the repository guidance.
 - If you want OpenHands to work from a comment, begin the comment with `@openhands`.

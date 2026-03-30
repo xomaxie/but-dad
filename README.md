@@ -16,17 +16,18 @@ The core idea is simple:
 - `AGENTS.md` — product and architecture brief for humans and coding agents
 - `.github/workflows/openhands-resolver.yml` — issue-driven OpenHands automation
 - `.github/scripts/openhands_run.py` — helper script used by the workflow
+- `.github/ISSUE_TEMPLATE/` — issue templates for OpenHands-friendly tasks
 - `docs/planning/` — project planning notes
 - `src/but_dad/` — project package
 - `tests/` — local tests
 
 ## OpenHands automation
 
-This repo includes the same OpenHands issue automation pattern used in the two reference automation repositories:
-- label an issue with `openhands`, or
+This repo includes the same OpenHands issue automation pattern used in the other automation repositories:
+- label an issue with `OpenHands`, or
 - comment with `@openhands ...`
 
-See `/opt/agent-zero/usr/workdir/but-dad/docs/planning/openhands-automation.md` for setup details.
+See `docs/planning/openhands-automation.md` for setup details.
 
 ## Local development
 
