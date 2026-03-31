@@ -1,3 +1,3 @@
-from .loop import Critique, LoopConfig, SpecDraft, SpecLoopState
+from .loop import Critique, LoopConfig, SpecDraft, SpecLoopState, TurnLimitError
 
-__all__ = ["Critique", "LoopConfig", "SpecDraft", "SpecLoopState"]
+__all__ = ["Critique", "LoopConfig", "SpecDraft", "SpecLoopState", "TurnLimitError"]

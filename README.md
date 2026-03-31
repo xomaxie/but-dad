@@ -31,3 +31,33 @@ source .venv/bin/activate
 pip install -e '.[dev]'
 pytest
 ```
+
+## CLI
+
+Render a markdown spec artifact from a structured turn log:
+
+```bash
+but-dad run --input loop.json --output artifacts/final-spec.md
+```
+
+Example input file:
+
+```json
+{
+  "title": "Release readiness spec",
+  "config": {"max_writer_turns": 2, "max_coach_turns": 2},
+  "turns": [
+    {
+      "role": "writer",
+      "content": "Define the webhook recovery flow.",
+      "rationale": ["Keep the initial scope small."]
+    },
+    {
+      "role": "coach",
+      "claim": "The failure mode is underspecified.",
+      "recommendation": "Document retry boundaries.",
+      "sources": ["https://example.com/retries"]
+    }
+  ]
+}
+```
