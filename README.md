@@ -11,6 +11,10 @@ The core idea is simple:
 - the loop runs for a bounded number of turns
 - the caller receives a polished final spec with sources and unresolved assumptions clearly marked
 
+## OpenHands trigger
+
+Create or open an issue, then add the `OpenHands` label to hand it off through the same webhook-driven flow used by `worklane`.
+
 ## Repository layout
 
 - `AGENTS.md` — product and architecture brief for humans and coding agents
