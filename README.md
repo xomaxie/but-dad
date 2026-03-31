@@ -14,24 +14,10 @@ The core idea is simple:
 ## Repository layout
 
 - `AGENTS.md` — product and architecture brief for humans and coding agents
-- `.github/workflows/openhands-resolver.yml` — issue-driven OpenHands automation
-- `.github/scripts/openhands_run.py` — helper script used by the workflow
 - `.github/ISSUE_TEMPLATE/` — issue templates for OpenHands-friendly tasks
 - `docs/planning/` — project planning notes
 - `src/but_dad/` — project package
 - `tests/` — local tests
-
-## OpenHands automation
-
-This repo includes the same OpenHands issue automation pattern used in the other automation repositories:
-- label an issue with `OpenHands`, or
-- comment with `@openhands ...`
-
-See `docs/planning/openhands-automation.md` for setup details.
-
-External prerequisites still apply:
-- GitHub Actions must be enabled and able to run for the repository/account.
-- `OPENHANDS_API_KEY` must be configured in repository secrets.
 
 ## Local development
 
