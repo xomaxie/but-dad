@@ -8,7 +8,9 @@ version = "0.1.0"
 description = "Spec-first adversarial writer/coach loop"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+  "mcp>=1.26.0",
+]
 
 [project.optional-dependencies]
 dev = [
