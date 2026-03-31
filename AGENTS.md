@@ -62,3 +62,6 @@ Defer unless explicitly requested:
 
 ## Notes for autonomous coding agents
 If an issue references this file, treat it as the default product and architecture brief. Keep changes local, incremental, and well-documented.
+## Repository notes
+- `SpecLoopState.add_draft()` and `.add_critique()` enforce the configured turn budgets via `TurnLimitError`.
+- The CLI entrypoint is `but-dad run --input <json> --output <markdown>`, consuming an explicit `turns` array and rendering a markdown artifact.
