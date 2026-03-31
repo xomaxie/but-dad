@@ -31,3 +31,17 @@ source .venv/bin/activate
 pip install -e '.[dev]'
 pytest
 ```
+
+## fast-agent experiment
+
+Issue #8 adds a minimal fast-agent writer/coach prototype plus saved findings.
+
+```bash
+python -m but_dad.fast_agent_experiment \
+  --topic "Produce an implementation-ready spec for a webhook-based issue handoff."
+```
+
+This writes:
+
+- `docs/experiments/fast-agent-sample-output.md`
+- `docs/experiments/fast-agent-findings.md`

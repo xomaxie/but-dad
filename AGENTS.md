@@ -62,3 +62,8 @@ Defer unless explicitly requested:
 
 ## Notes for autonomous coding agents
 If an issue references this file, treat it as the default product and architecture brief. Keep changes local, incremental, and well-documented.
+
+## Repository-specific implementation notes
+- The minimal fast-agent experiment lives in `src/but_dad/fast_agent_experiment.py`.
+- Keep fast-agent integration optional; tests should continue to pass without installing `fast-agent-mcp`.
+- Save reviewable artifacts under `docs/experiments/` rather than hiding findings in transient logs.
