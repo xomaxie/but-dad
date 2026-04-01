@@ -2,6 +2,20 @@
 
 But Dad is a reusable spec-improvement tool built around a bounded **writer vs. coach** loop.
 
+## LLM install instructions
+
+If you're using Codex or another coding agent, you can paste this directly:
+
+```text
+Fetch and follow these install instructions: https://raw.githubusercontent.com/xomaxie/but-dad/main/docs/install-with-codex.md
+```
+
+Or fetch them yourself:
+
+```bash
+curl -L https://raw.githubusercontent.com/xomaxie/but-dad/main/docs/install-with-codex.md
+```
+
 It helps turn rough ideas into implementation-ready specs by having:
 
 - a **writer** drafts and revises the spec,
