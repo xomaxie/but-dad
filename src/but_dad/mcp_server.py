@@ -7,6 +7,7 @@ from mcp.server.fastmcp import FastMCP
 
 from .mcp_tool import (
     DEFAULT_OUTPUT_DIR,
+    DEFAULT_MODE,
     DEFAULT_PREFERRED_MODEL_BACKEND,
     DEFAULT_TITLE,
     SpecLoopRequest,
@@ -20,7 +21,7 @@ def build_server() -> FastMCP:
 
     @server.tool(
         name="run_spec_loop",
-        description="Run the bounded But Dad writer/coach loop and write deterministic review artifacts.",
+        description="Run the But Dad writer/coach loop in live or preview mode and write review artifacts.",
         structured_output=True,
     )
     def run_spec_loop_tool(
@@ -34,6 +35,10 @@ def build_server() -> FastMCP:
         max_writer_turns: int = 6,
         max_coach_turns: int = 6,
         preferred_model_backend: str = DEFAULT_PREFERRED_MODEL_BACKEND,
+        mode: str = DEFAULT_MODE,
+        config_path: str | None = None,
+        model: str | None = None,
+        time_budget_seconds: float | None = None,
     ) -> SpecLoopRunResult:
         request = SpecLoopRequest(
             topic=topic,
@@ -46,6 +51,10 @@ def build_server() -> FastMCP:
             max_writer_turns=max_writer_turns,
             max_coach_turns=max_coach_turns,
             preferred_model_backend=preferred_model_backend,
+            mode=mode,
+            config_path=config_path,
+            model=model,
+            time_budget_seconds=time_budget_seconds,
         )
         return run_spec_loop(request)
 

@@ -34,7 +34,7 @@ pytest
 
 ## Reusable MCP server
 
-Issue #10 adds a reusable MCP server entrypoint with a deterministic preview loop.
+Issue #10 added the reusable MCP server entrypoint. Issue #12 extends that tool with an opt-in live fast-agent/Malachi-backed execution path while keeping preview mode available for deterministic local verification.
 
 Run the server locally over stdio:
 
@@ -52,16 +52,66 @@ Example tool inputs:
 - `run_name`: stable artifact directory name; defaults to a slugified topic
 - `context`, `constraints`, `acceptance_criteria`: optional lists that seed the living draft
 - `preferred_model_backend`: defaults to `Malachi` so downstream live wiring can preserve the intended backend
+- `mode`: `preview` for deterministic local artifacts, `live` for the fast-agent/Malachi-backed path
+- `config_path`: optional explicit live config path; if omitted, `BUT_DAD_FASTAGENT_CONFIG_PATH` is used before the placeholder default path
+- `model`: optional explicit live model override; if omitted, `BUT_DAD_FASTAGENT_MODEL` is used before falling back to `Malachi`
+- `time_budget_seconds`: optional whole-run timeout for live execution
 
 Each run writes:
 
 - `final-spec.md`
 - `transcript.md`
+- `transcript-writer.md`
+- `transcript-coach.md`
 - `transcript.json`
+- `sources.json`
+- `metrics.json`
+- `run.json`
 - `summary.json`
-
-A deterministic sample run is checked in under `docs/experiments/mcp-tool/issue-10-preview/`.
+- `logs.txt`
 
 ### Verification
 
-The current implementation intentionally ships a deterministic preview mode because the Issue #10 spec files referenced in the issue were not present in the repository checkout. That keeps the loop bounded, testable, and inspectable while still providing a reusable MCP tool contract and predictable artifact layout.
+Install local dependencies:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -e '.[dev,fast-agent]'
+```
+
+Run the test suite:
+
+```bash
+PYTHONPATH=src .venv/bin/python -m pytest -q
+```
+
+Start the MCP server over stdio:
+
+```bash
+PYTHONPATH=src .venv/bin/python -m but_dad.mcp_server --transport stdio
+```
+
+Preview mode remains deterministic and requires no extra config.
+
+To verify the live path locally:
+
+```bash
+export BUT_DAD_FASTAGENT_CONFIG_PATH=/absolute/path/to/fastagent.config.yaml
+export BUT_DAD_FASTAGENT_MODEL=Malachi
+```
+
+Then invoke `run_spec_loop` with `mode="live"`. You can still override either value per request.
+
+Example live-oriented payload:
+
+```json
+{
+  "topic": "Upgrade preview MCP tool to the live Malachi-backed path.",
+  "run_name": "issue-12-live-smoke",
+  "mode": "live",
+  "time_budget_seconds": 180
+}
+```
+
+The current repo still does **not** check in a fast-agent config or Malachi credentials, so live verification depends on caller-supplied local configuration. Preview mode remains available for bounded, inspectable regression coverage.
