@@ -15,9 +15,9 @@ This spec turns the current repo-local experiment into a **productized MCP capab
 ## Goals
 1. Expose the spec-improvement workflow as an MCP server with stable tool contracts.
 2. Support the tested writer/coach behavior: one writer, one nitpicking coach, bounded turns, research-backed critique, artifact output.
-3. Make the workflow reusable from MCP clients such as OpenHands, Claude Desktop, Codex-style clients, custom wrappers, or repo automation.
+3. Make the workflow reusable from MCP clients such as Claude Desktop, Codex-style clients, custom wrappers, or repo automation.
 4. Preserve auditability: every run must produce durable artifacts, run metadata, and a clear terminal state.
-5. Keep the server implementation decoupled from any single frontend, repo, or issue-trigger mechanism.
+5. Keep the server implementation decoupled from any single frontend, repo, or automation wrapper.
 6. Support Malachi-backed model execution and repo-approved research tooling.
 
 ## Non-goals
@@ -46,7 +46,7 @@ It owns:
 It does **not** own:
 - GitHub issue labeling,
 - webhook dispatch,
-- OpenHands routing,
+- automation routing,
 - or client-specific UX.
 
 Those stay outside the MCP server and call it as a dependency.
@@ -65,7 +65,7 @@ Those stay outside the MCP server and call it as a dependency.
    - Final output replaces or supplements the baseline.
 
 3. **Use from repo automation**
-   - A wrapper script or OpenHands task calls the MCP tool.
+   - A wrapper script or client task calls the MCP tool.
    - The wrapper stores or uploads the returned artifacts.
 
 4. **Use interactively from an MCP client**
@@ -487,7 +487,7 @@ This spec should drive implementation in:
    - https://github.com/modelcontextprotocol/typescript-sdk
 4. MCP Inspector docs: recommended for testing/debugging locally developed MCP servers.
    - https://modelcontextprotocol.io/docs/tools
-5. OpenHands headless docs: headless runs are file/task-driven automation runs and can emit JSONL, which is relevant to the existing repo automation context even though the MCP server itself is frontend-agnostic.
-   - https://docs.openhands.dev/openhands/usage/cli/headless
+5. MCP transports docs: stdio is the primary transport target in v1, with Streamable HTTP considered later for broader client compatibility.
+   - https://modelcontextprotocol.io/specification/draft/basic/transports
 
 **Inference note:** the exact v1 tool split (`spec_loop_run`, `spec_loop_validate`, `spec_loop_resume`, `spec_loop_artifact`) is an implementation design choice derived from the tested But Dad workflow and MCP tool semantics; it is not mandated by the MCP spec.

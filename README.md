@@ -1,63 +1,130 @@
 # But Dad
 
-But Dad is a small project for producing deeply detailed specs through a bounded writer-vs-coach loop.
+But Dad is a reusable spec-improvement tool built around a bounded **writer vs. coach** loop.
 
-## What it is
+It helps turn rough ideas into implementation-ready specs by having:
 
-The core idea is simple:
-- a **writer** drafts an implementation-ready spec
-- a **coach** nitpicks, argues, and challenges weak assumptions
-- the coach should support major critiques with web research when the workflow is wired live
-- the loop runs for a bounded number of turns
-- the caller receives a polished final spec with sources and unresolved assumptions clearly marked
+- a **writer** drafts and revises the spec,
+- a **coach** challenge ambiguity, omissions, and weak assumptions,
+- optional **live research** to support stronger critiques,
+- and a consistent artifact bundle for review.
 
-## OpenHands trigger
+## What But Dad is for
 
-Create or open an issue, then add the `OpenHands` label to hand it off through the same webhook-driven flow used by `worklane`.
+Use But Dad when you want a stronger version of:
+
+- a product spec,
+- implementation plan,
+- architecture note,
+- MCP/tool design,
+- rollout plan,
+- or any serious requirements document.
+
+But Dad is designed to be:
+
+- **bounded** — finite turns, explicit stop conditions,
+- **inspectable** — transcripts, metrics, summaries, and sources are saved,
+- **reusable** — exposed as an MCP tool for clients and local workflows,
+- **practical** — preview mode for deterministic iteration, live mode for research-backed critique.
+
+## Core concepts
+
+### Writer
+Produces the baseline draft and incorporates feedback into clearer, more testable requirements.
+
+### Coach
+Nitpicks aggressively, pushes on unclear claims, and in live mode can ground major objections in current sources.
+
+### Artifact bundle
+Each run writes a final spec plus supporting transcripts and metadata so the result can be inspected instead of treated as a black box.
 
 ## Repository layout
 
-- `AGENTS.md` — product and architecture brief for humans and coding agents
-- `.github/ISSUE_TEMPLATE/` — issue templates for OpenHands-friendly tasks
-- `docs/planning/` — project planning notes
-- `src/but_dad/` — project package
-- `tests/` — local tests
+- `src/but_dad/` — MCP server and loop implementation
+- `tests/` — regression and integration-oriented tests
+- `docs/planning/` — planning and design notes
+- `docs/experiments/` — experiment outputs and proof artifacts
+- `skills/use-but-dad-spec-loop/` — companion skill for when to use the tool
+- `AGENTS.md` — product and architecture brief
 
-## Local development
+## Installation
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install -e '.[dev]'
-pytest
 ```
 
-## Reusable MCP server
-
-Issue #10 added the reusable MCP server entrypoint. Issue #12 extends that tool with an opt-in live fast-agent/Malachi-backed execution path while keeping preview mode available for deterministic local verification.
-
-Run the server locally over stdio:
+To include the fast-agent-backed live path:
 
 ```bash
-python -m but_dad.mcp_server --transport stdio
+pip install -e '.[dev,fast-agent]'
 ```
 
-The server exposes one structured tool:
+## Running tests
 
-- `run_spec_loop` — runs the bounded writer/coach loop and writes artifacts to `docs/experiments/mcp-tool/<run-name>/`
+```bash
+PYTHONPATH=src .venv/bin/python -m pytest -q
+```
 
-Example tool inputs:
+## MCP server
 
-- `topic`: the problem the loop should refine into a spec
-- `run_name`: stable artifact directory name; defaults to a slugified topic
-- `context`, `constraints`, `acceptance_criteria`: optional lists that seed the living draft
-- `preferred_model_backend`: defaults to `Malachi` so downstream live wiring can preserve the intended backend
-- `mode`: `preview` for deterministic local artifacts, `live` for the fast-agent/Malachi-backed path
-- `config_path`: optional explicit live config path; if omitted, `BUT_DAD_FASTAGENT_CONFIG_PATH` is used before the placeholder default path
-- `model`: optional explicit live model override; if omitted, `BUT_DAD_FASTAGENT_MODEL` is used before falling back to `Malachi`
-- `time_budget_seconds`: optional whole-run timeout for live execution
+Start the server over stdio:
 
-Each run writes:
+```bash
+PYTHONPATH=src .venv/bin/python -m but_dad.mcp_server --transport stdio
+```
+
+The server exposes one primary tool:
+
+- `run_spec_loop`
+
+## `run_spec_loop` overview
+
+Key inputs:
+
+- `topic` — the problem or spec goal
+- `run_name` — stable artifact directory name
+- `mode` — `preview` or `live`
+- `context` — optional project background
+- `constraints` — optional hard requirements
+- `acceptance_criteria` — optional success conditions
+- `time_budget_seconds` — optional whole-run timeout
+
+### Modes
+
+#### `preview`
+
+Use preview mode when you want:
+
+- deterministic local verification,
+- a fast dry run,
+- or a first serious pass on a draft.
+
+#### `live`
+
+Use live mode when you want:
+
+- research-backed coach objections,
+- stronger pressure on factual correctness,
+- or a more realistic end-to-end run.
+
+Live mode depends on caller-supplied local configuration. This repo does **not** commit fast-agent config files or model credentials.
+
+Set local environment variables if needed:
+
+```bash
+export BUT_DAD_FASTAGENT_CONFIG_PATH=/absolute/path/to/fastagent.config.yaml
+export BUT_DAD_FASTAGENT_MODEL=Malachi
+```
+
+## Output artifacts
+
+Each run writes an artifact bundle under:
+
+- `docs/experiments/mcp-tool/<run-name>/`
+
+Typical outputs:
 
 - `final-spec.md`
 - `transcript.md`
@@ -70,56 +137,21 @@ Each run writes:
 - `summary.json`
 - `logs.txt`
 
-### Verification
-
-Install local dependencies:
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -e '.[dev,fast-agent]'
-```
-
-Run the test suite:
-
-```bash
-PYTHONPATH=src .venv/bin/python -m pytest -q
-```
-
-Start the MCP server over stdio:
-
-```bash
-PYTHONPATH=src .venv/bin/python -m but_dad.mcp_server --transport stdio
-```
-
-Preview mode remains deterministic and requires no extra config.
-
-To verify the live path locally:
-
-```bash
-export BUT_DAD_FASTAGENT_CONFIG_PATH=/absolute/path/to/fastagent.config.yaml
-export BUT_DAD_FASTAGENT_MODEL=Malachi
-```
-
-Then invoke `run_spec_loop` with `mode="live"`. You can still override either value per request.
-
-Example live-oriented payload:
+## Example payload
 
 ```json
 {
-  "topic": "Upgrade preview MCP tool to the live Malachi-backed path.",
-  "run_name": "issue-12-live-smoke",
-  "mode": "live",
+  "topic": "Turn a tested writer-vs-coach workflow into a reusable MCP tool.",
+  "run_name": "reusable-mcp-tool-spec",
+  "mode": "preview",
   "time_budget_seconds": 180
 }
 ```
 
-The current repo still does **not** check in a fast-agent config or Malachi credentials, so live verification depends on caller-supplied local configuration. Preview mode remains available for bounded, inspectable regression coverage.
+## Companion skill
 
-## Bundled Agent Zero skill
-
-This repo now bundles the companion Agent Zero skill here:
+This repo bundles a companion skill here:
 
 - `skills/use-but-dad-spec-loop/SKILL.md`
 
-Use it when generating any meaningful spec, plan, design doc, architecture note, or implementation brief. It explains when to use preview vs live mode, how to start the MCP server, what payload to send to `run_spec_loop`, and which artifacts to inspect before returning the final spec.
+Use it when generating a meaningful spec, plan, design doc, architecture note, or implementation brief.
