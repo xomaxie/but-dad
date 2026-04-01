@@ -22,7 +22,7 @@ This productizes the repo-local experiment into an MCP capability that is:
 - Not a generic multi-agent orchestration platform.
 - Not a general-purpose research agent.
 - Not a replacement for human approval on important specs.
-- Not a webhook server, PR bot, or code-modification server in v1.
+- Not an event-ingestion server, PR bot, or code-modification server in v1.
 - Not cloud-only; **stdio** is required in v1.
 - Not a requirement to support multi-coach or rubric ensembles in v1.
 - Not responsible for client-specific approval policy; the server is auditable and bounded, while the client decides when humans must confirm.

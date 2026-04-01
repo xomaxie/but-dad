@@ -20,7 +20,7 @@ Examples:
 Use stable, filesystem-safe names such as:
 - `auth-mcp-plan`
 - `pricing-redesign-spec`
-- `openhands-repo-setup-v2`
+- `public-mcp-rollout-v2`
 
 ## Suggested summary phrasing
 

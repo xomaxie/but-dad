@@ -134,7 +134,7 @@ pip install -e '.[dev,fast-agent]'
 For live mode, set local config first if needed:
 
 ```bash
-export BUT_DAD_FASTAGENT_CONFIG_PATH=/absolute/path/to/fastagent.config.yaml
+export BUT_DAD_FASTAGENT_CONFIG_PATH=/absolute/path/to/your-fastagent.config.yaml
 export BUT_DAD_FASTAGENT_MODEL=Malachi
 ```
 

@@ -10,7 +10,7 @@ from but_dad.fast_agent_experiment import (
 
 
 def test_dry_run_transcript_uses_six_turn_budget() -> None:
-    transcript = build_dry_run_transcript("Draft an issue handoff spec")
+    transcript = build_dry_run_transcript("Draft a reusable MCP tool spec")
 
     assert transcript.count("## Writer turn") == 6
     assert transcript.count("## Coach turn") == 6

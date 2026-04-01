@@ -24,7 +24,7 @@ This spec turns the current repo-local experiment into a **productized MCP capab
 - Not a generic multi-agent orchestration platform.
 - Not a general-purpose MCP research server for arbitrary tasks.
 - Not a replacement for human approval of important specs.
-- Not a GitHub webhook server.
+- Not an event-ingestion or repository automation server in v1.
 - Not a PR-writing or code-modification MCP server in v1.
 - Not a cloud-only service; local stdio operation is the primary target in v1.
 
@@ -44,9 +44,9 @@ It owns:
 - and deterministic output shaping.
 
 It does **not** own:
-- GitHub issue labeling,
-- webhook dispatch,
-- automation routing,
+- external automation routing,
+- repository event ingestion,
+- client-specific task dispatch,
 - or client-specific UX.
 
 Those stay outside the MCP server and call it as a dependency.

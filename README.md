@@ -45,7 +45,6 @@ Each run writes a final spec plus supporting transcripts and metadata so the res
 - `docs/planning/` — planning and design notes
 - `docs/experiments/` — experiment outputs and proof artifacts
 - `skills/use-but-dad-spec-loop/` — companion skill for when to use the tool
-- `AGENTS.md` — product and architecture brief
 
 ## Installation
 

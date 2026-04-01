@@ -12,7 +12,7 @@ from typing import Sequence
 
 from .loop import LoopConfig, SpecLoopState
 
-DEFAULT_TOPIC = "Produce an implementation-ready spec for a webhook-based issue handoff."
+DEFAULT_TOPIC = "Produce an implementation-ready spec for shipping a reusable MCP tool."
 DEFAULT_OUTPUT_PATH = Path("docs/experiments/fast-agent-sample-output.md")
 DEFAULT_FINDINGS_PATH = Path("docs/experiments/fast-agent-findings.md")
 DEFAULT_CONFIG_PATH = "path/to/fastagent.config.yaml"

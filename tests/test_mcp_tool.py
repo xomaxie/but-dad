@@ -15,15 +15,15 @@ def test_run_spec_loop_preview_writes_expected_artifacts(tmp_path: Path) -> None
     result = run_spec_loop(
         SpecLoopRequest(
             topic="Implement a reusable MCP tool for the But Dad loop.",
-            run_name="issue-10-sample",
+            run_name="public-preview-sample",
             output_dir=str(tmp_path),
             mode="preview",
-            context=["Issue #10 requests a reusable MCP server."],
+            context=["Public sample run for a reusable MCP server."],
             acceptance_criteria=["Artifacts are predictable.", "Tests cover the loop contract."],
         )
     )
 
-    run_dir = tmp_path / "issue-10-sample"
+    run_dir = tmp_path / "public-preview-sample"
     assert result.output_dir == str(run_dir)
     assert result.preferred_model_backend == "Malachi"
     assert result.status == "bounded_stop"
@@ -61,7 +61,7 @@ def test_run_spec_loop_preview_writes_expected_artifacts(tmp_path: Path) -> None
     parsed_transcript = json.loads(transcript_json.read_text())
     assert parsed_transcript[0]["role"] == "writer"
     parsed_summary = json.loads(summary.read_text())
-    assert parsed_summary["run_id"] == "issue-10-sample"
+    assert parsed_summary["run_id"] == "public-preview-sample"
     parsed_run = json.loads(run_metadata.read_text())
     assert parsed_run["status"] == "bounded_stop"
     assert parsed_run["artifacts"]["transcript_writer"] == str(writer_transcript)
@@ -109,7 +109,7 @@ def test_mcp_server_stdio_round_trip_preview(tmp_path: Path) -> None:
 def test_run_spec_loop_live_runner_writes_terminal_metadata(tmp_path: Path) -> None:
     def stub_live_runner(request: SpecLoopRequest, raw_output_path: Path) -> str:
         assert request.mode == "live"
-        assert raw_output_path == tmp_path / "issue-12-live" / "raw-live-output.md"
+        assert raw_output_path == tmp_path / "live-sample" / "raw-live-output.md"
         return """# Final spec
 
 ## Objective
@@ -177,7 +177,7 @@ Sources consulted
     result = run_spec_loop(
         SpecLoopRequest(
             topic="Upgrade preview MCP tool to the live path.",
-            run_name="issue-12-live",
+            run_name="live-sample",
             output_dir=str(tmp_path),
             mode="live",
             config_path=str(tmp_path / "fastagent.config.yaml"),
@@ -185,7 +185,7 @@ Sources consulted
         live_runner=stub_live_runner,
     )
 
-    run_dir = tmp_path / "issue-12-live"
+    run_dir = tmp_path / "live-sample"
     assert result.status == "success"
     assert result.writer_turns_used == 2
     assert result.coach_turns_used == 2
