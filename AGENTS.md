@@ -66,4 +66,5 @@ If an issue references this file, treat it as the default product and architectu
 ## Additional repository notes
 - The reusable MCP server entrypoint lives in `src/but_dad/mcp_server.py`.
 - Core Issue #10 preview-loop orchestration and artifact writing live in `src/but_dad/mcp_tool.py`.
+- Issue #12 adds the live fast-agent execution path; local defaults can come from `BUT_DAD_FASTAGENT_CONFIG_PATH` and `BUT_DAD_FASTAGENT_MODEL`.
 - Deterministic MCP artifacts are written under `docs/experiments/mcp-tool/<run-name>/`.
