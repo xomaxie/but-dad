@@ -115,3 +115,11 @@ Example live-oriented payload:
 ```
 
 The current repo still does **not** check in a fast-agent config or Malachi credentials, so live verification depends on caller-supplied local configuration. Preview mode remains available for bounded, inspectable regression coverage.
+
+## Bundled Agent Zero skill
+
+This repo now bundles the companion Agent Zero skill here:
+
+- `skills/use-but-dad-spec-loop/SKILL.md`
+
+Use it when generating any meaningful spec, plan, design doc, architecture note, or implementation brief. It explains when to use preview vs live mode, how to start the MCP server, what payload to send to `run_spec_loop`, and which artifacts to inspect before returning the final spec.
