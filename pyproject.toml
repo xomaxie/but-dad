@@ -17,6 +17,9 @@ dependencies = [
 dev = [
   "pytest>=8.0",
 ]
+fast-agent = [
+  "fast-agent-mcp>=0.2.49",
+]
 
 [tool.setuptools]
 package-dir = {"" = "src"}
