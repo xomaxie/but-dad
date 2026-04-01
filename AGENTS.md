@@ -62,3 +62,8 @@ Defer unless explicitly requested:
 
 ## Notes for autonomous coding agents
 If an issue references this file, treat it as the default product and architecture brief. Keep changes local, incremental, and well-documented.
+
+## Additional repository notes
+- The reusable MCP server entrypoint lives in `src/but_dad/mcp_server.py`.
+- Core Issue #10 preview-loop orchestration and artifact writing live in `src/but_dad/mcp_tool.py`.
+- Deterministic MCP artifacts are written under `docs/experiments/mcp-tool/<run-name>/`.
