@@ -170,7 +170,7 @@ def run_spec_loop(request: SpecLoopRequest, live_runner: LiveRunner | None = Non
             error_message=error_message,
         )
 
-    warnings = [*warnings, *bundle.warnings]
+    warnings = list(dict.fromkeys([*warnings, *bundle.warnings]))
     final_spec_path.write_text(_ensure_trailing_newline(bundle.final_spec))
     transcript_markdown_path.write_text(_ensure_trailing_newline(bundle.interleaved_transcript))
     writer_transcript_path.write_text(_ensure_trailing_newline(bundle.writer_transcript))

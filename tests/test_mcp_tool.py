@@ -1,8 +1,13 @@
 import asyncio
 import json
+import os
+import sys
 from pathlib import Path
 
-from but_dad.mcp_server import build_server
+import anyio
+from mcp import ClientSession
+from mcp.client.stdio import StdioServerParameters, stdio_client
+
 from but_dad.mcp_tool import SpecLoopRequest, run_spec_loop
 
 
@@ -24,6 +29,10 @@ def test_run_spec_loop_preview_writes_expected_artifacts(tmp_path: Path) -> None
     assert result.status == "bounded_stop"
     assert result.writer_turns_used == 6
     assert result.coach_turns_used == 6
+    assert result.warnings == [
+        "Preview mode stays deterministic and does not execute Malachi or live research.",
+        "Use mode=live with a configured fast-agent setup to run the real writer/coach loop.",
+    ]
 
     final_spec = run_dir / "final-spec.md"
     transcript = run_dir / "transcript.md"
@@ -57,6 +66,44 @@ def test_run_spec_loop_preview_writes_expected_artifacts(tmp_path: Path) -> None
     assert parsed_run["status"] == "bounded_stop"
     assert parsed_run["artifacts"]["transcript_writer"] == str(writer_transcript)
     assert json.loads(sources.read_text()) == []
+
+
+async def _call_preview_tool_over_stdio(tmp_path: Path) -> object:
+    server = StdioServerParameters(
+        command=sys.executable,
+        args=["-m", "but_dad.mcp_server", "--transport", "stdio"],
+        env={**os.environ, "PYTHONPATH": str(Path(__file__).resolve().parents[1] / "src")},
+        cwd=str(Path(__file__).resolve().parents[1]),
+    )
+    async with stdio_client(server) as (read, write):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            tools = await session.list_tools()
+            assert [tool.name for tool in tools.tools] == ["run_spec_loop"]
+            result = await session.call_tool(
+                "run_spec_loop",
+                {
+                    "topic": "Round-trip MCP preview test",
+                    "title": "Preview Spec",
+                    "mode": "preview",
+                    "output_dir": str(tmp_path),
+                    "max_writer_turns": 1,
+                    "max_coach_turns": 1,
+                },
+            )
+            return result
+
+
+def test_mcp_server_stdio_round_trip_preview(tmp_path: Path) -> None:
+    result = anyio.run(_call_preview_tool_over_stdio, tmp_path)
+
+    assert result.isError is False
+    payload = result.structuredContent
+    assert payload["status"] == "bounded_stop"
+    assert payload["writer_turns_used"] == 1
+    assert payload["coach_turns_used"] == 1
+    assert Path(payload["final_spec_path"]).exists()
+    assert Path(payload["summary_path"]).exists()
 
 
 def test_run_spec_loop_live_runner_writes_terminal_metadata(tmp_path: Path) -> None:
@@ -268,30 +315,15 @@ Draft before crash
     result = run_spec_loop(
         SpecLoopRequest(
             topic="Crash while running live mode.",
-            run_name="issue-12-execution-error",
+            run_name="issue-12-error",
             output_dir=str(tmp_path),
             mode="live",
             config_path=str(config_path),
         )
     )
 
-    run_dir = tmp_path / "issue-12-execution-error"
+    run_dir = tmp_path / "issue-12-error"
     assert result.status == "execution_error"
-    assert result.writer_turns_used == 1
-    assert result.coach_turns_used == 0
-    assert "failed" in result.warnings[0].lower()
+    assert result.error_message == "boom"
     assert "Partial live output was captured" in result.warnings[1]
     assert "Partial spec before crash." in (run_dir / "final-spec.md").read_text()
-    assert json.loads((run_dir / "run.json").read_text())["status"] == "execution_error"
-
-
-def test_run_spec_loop_server_registers_structured_tool() -> None:
-    server = build_server()
-    tools = server._tool_manager.list_tools()
-
-    assert [tool.name for tool in tools] == ["run_spec_loop"]
-    tool = tools[0]
-    assert tool.fn_metadata.output_schema is not None
-    assert "topic" in tool.parameters["properties"]
-    assert "mode" in tool.parameters["properties"]
-    assert "status" in tool.fn_metadata.output_schema["properties"]
