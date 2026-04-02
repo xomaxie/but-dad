@@ -323,7 +323,17 @@ def _run_live_bundle(
     runner = live_runner or _default_live_runner
     markdown = runner(request, raw_live_output_path)
     raw_live_output_path.write_text(_ensure_trailing_newline(markdown))
-    return _parse_live_markdown(request, markdown)
+    try:
+        return _parse_live_markdown(request, markdown)
+    except ValueError:
+        return _parse_partial_live_markdown(
+            request=request,
+            markdown=markdown,
+            warning_message=(
+                "Recovered artifacts from partial live output even though the full transcript structure was incomplete."
+            ),
+            require_recoverable_content=True,
+        )
 
 
 def _default_live_runner(request: SpecLoopRequest, raw_live_output_path: Path) -> str:
@@ -380,13 +390,13 @@ def _parse_live_markdown(request: SpecLoopRequest, markdown: str) -> ArtifactBun
     if coach_turns is None:
         coach_turns = len(_split_turn_sections(coach_transcript, "Coach"))
 
-    status = extract_terminal_status(run_summary)
-    if status not in VALID_TERMINAL_STATUSES:
-        status = (
-            "bounded_stop"
-            if writer_turns >= request.max_writer_turns and coach_turns >= request.max_coach_turns
-            else "success"
-        )
+    status = _resolve_bundle_status(
+        request=request,
+        run_summary=run_summary,
+        writer_turns=writer_turns,
+        coach_turns=coach_turns,
+        default_status="success",
+    )
 
     transcript_records = _build_live_transcript_records(writer_transcript, coach_transcript)
     sources = _build_source_records(sections["source_appendix"], coach_transcript)
@@ -484,14 +494,21 @@ def _recover_live_bundle(
 def _parse_partial_live_markdown(
     request: SpecLoopRequest,
     markdown: str,
-    status: str,
-    error_message: str,
+    status: str | None = None,
+    error_message: str | None = None,
+    warning_message: str = "Partial live output was captured before the run stopped.",
+    require_recoverable_content: bool = False,
 ) -> ArtifactBundle:
     sections = _extract_sections(markdown, require_all=False)
     final_spec = sections["final_spec"].strip()
     writer_transcript = sections["writer_transcript"].strip()
     coach_transcript = sections["coach_transcript"].strip()
     run_summary = sections["run_summary"]
+
+    if require_recoverable_content and not any(
+        section.strip() for section in (final_spec, writer_transcript, coach_transcript, run_summary)
+    ):
+        raise ValueError("Live output did not contain recoverable sections.")
 
     writer_turns = _extract_completed_turns(run_summary, "completed_writer_turns")
     coach_turns = _extract_completed_turns(run_summary, "completed_coach_turns")
@@ -500,22 +517,30 @@ def _parse_partial_live_markdown(
     if coach_turns is None:
         coach_turns = len(_split_turn_sections(coach_transcript, "Coach"))
 
+    resolved_status = status or _resolve_bundle_status(
+        request=request,
+        run_summary=run_summary,
+        writer_turns=writer_turns,
+        coach_turns=coach_turns,
+        default_status="success",
+    )
+
     transcript_records = _build_live_transcript_records(writer_transcript, coach_transcript)
     sources = _build_source_records(sections["source_appendix"], coach_transcript)
 
     if not final_spec:
-        final_spec = "\n".join(
-            [
-                f"# {request.title}",
-                "",
-                "## Terminal status",
-                f"- {status}",
-                "",
-                "## Failure summary",
-                error_message,
-                "",
-            ]
-        )
+        final_spec_lines = [
+            f"# {request.title}",
+            "",
+            "## Terminal status",
+            f"- {resolved_status}",
+            "",
+        ]
+        if error_message:
+            final_spec_lines.extend(["## Failure summary", error_message, ""])
+        else:
+            final_spec_lines.extend(["## Recovery summary", "The live run returned partial structured output without a finalized spec body.", ""])
+        final_spec = "\n".join(final_spec_lines)
 
     return ArtifactBundle(
         final_spec=final_spec,
@@ -523,16 +548,16 @@ def _parse_partial_live_markdown(
             request=request,
             writer_transcript=writer_transcript,
             coach_transcript=coach_transcript,
-            status=status,
+            status=resolved_status,
         ),
         writer_transcript=writer_transcript or "_No writer transcript was captured._",
         coach_transcript=coach_transcript or "_No coach transcript was captured._",
         transcript_records=transcript_records,
         sources=sources,
-        status=status,
+        status=resolved_status,
         writer_turns_used=writer_turns,
         coach_turns_used=coach_turns,
-        warnings=["Partial live output was captured before the run stopped."],
+        warnings=[warning_message],
     )
 
 
@@ -569,6 +594,21 @@ def _extract_completed_turns(run_summary: str, key: str) -> int | None:
     if not match:
         return None
     return int(match.group(1))
+
+
+def _resolve_bundle_status(
+    request: SpecLoopRequest,
+    run_summary: str,
+    writer_turns: int,
+    coach_turns: int,
+    default_status: str,
+) -> str:
+    status = extract_terminal_status(run_summary)
+    if status in VALID_TERMINAL_STATUSES:
+        return status
+    if writer_turns >= request.max_writer_turns and coach_turns >= request.max_coach_turns:
+        return "bounded_stop"
+    return default_status
 
 
 def _build_live_transcript_records(

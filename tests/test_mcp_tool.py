@@ -327,3 +327,51 @@ Draft before crash
     assert result.error_message == "boom"
     assert "Partial live output was captured" in result.warnings[1]
     assert "Partial spec before crash." in (run_dir / "final-spec.md").read_text()
+
+
+def test_run_spec_loop_live_partial_structured_output_recovers_without_execution_error(tmp_path: Path) -> None:
+    def stub_live_runner(request: SpecLoopRequest, raw_output_path: Path) -> str:
+        assert request.mode == "live"
+        return """# Final spec
+
+## Objective
+Recovered final spec.
+
+# Writer transcript
+
+## Writer turn 1
+
+Draft one
+
+# Run summary
+
+- terminal_status: success
+- completed_writer_turns: 1
+- completed_coach_turns: 0
+- final_assessment: Partial transcript, but the model finished the useful work.
+"""
+
+    result = run_spec_loop(
+        SpecLoopRequest(
+            topic="Recover partial live output without collapsing the run.",
+            run_name="issue-14-partial-success",
+            output_dir=str(tmp_path),
+            mode="live",
+            config_path=str(tmp_path / "fastagent.config.yaml"),
+        ),
+        live_runner=stub_live_runner,
+    )
+
+    run_dir = tmp_path / "issue-14-partial-success"
+    assert result.status == "success"
+    assert result.error_message is None
+    assert result.writer_turns_used == 1
+    assert result.coach_turns_used == 0
+    assert result.warnings == [
+        "Recovered artifacts from partial live output even though the full transcript structure was incomplete.",
+    ]
+    assert json.loads((run_dir / "run.json").read_text())["status"] == "success"
+    assert json.loads((run_dir / "summary.json").read_text())["status"] == "success"
+    assert "Recovered final spec." in (run_dir / "final-spec.md").read_text()
+    assert "Draft one" in (run_dir / "transcript.md").read_text()
+    assert (run_dir / "raw-live-output.md").exists()
