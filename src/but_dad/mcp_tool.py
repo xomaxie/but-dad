@@ -4,6 +4,7 @@ import asyncio
 import json
 import os
 import re
+import threading
 import traceback
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -338,25 +339,47 @@ def _run_live_bundle(
 
 def _default_live_runner(request: SpecLoopRequest, raw_live_output_path: Path) -> str:
     config_path = _resolve_live_config_path(request.config_path)
+    config_path = _prepare_runtime_live_config(config_path, raw_live_output_path.parent)
     loop = LoopConfig(
         max_writer_turns=request.max_writer_turns,
         max_coach_turns=request.max_coach_turns,
     )
-    model = _resolve_live_model_name(request)
+    model = _normalize_live_model_for_config(_resolve_live_model_name(request), config_path)
+    time_budget_seconds = _resolve_live_time_budget_seconds(request, model)
 
     async def _execute() -> str:
         task = run_live_experiment(
-            topic=request.topic,
+            topic=_build_live_topic_prompt(request),
             output_path=raw_live_output_path,
             config_path=config_path,
             model=model,
             loop=loop,
         )
-        if request.time_budget_seconds is not None:
-            return await asyncio.wait_for(task, timeout=request.time_budget_seconds)
+        if time_budget_seconds is not None:
+            return await asyncio.wait_for(task, timeout=time_budget_seconds)
         return await task
 
-    return asyncio.run(_execute())
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(_execute())
+
+    result: dict[str, str] = {}
+    error: dict[str, BaseException] = {}
+
+    def _run_in_worker_thread() -> None:
+        try:
+            result["markdown"] = asyncio.run(_execute())
+        except BaseException as exc:  # pragma: no cover - re-raised below
+            error["exc"] = exc
+
+    worker = threading.Thread(target=_run_in_worker_thread, daemon=True)
+    worker.start()
+    worker.join()
+
+    if "exc" in error:
+        raise error["exc"]
+    return result["markdown"]
 
 
 def _resolve_live_config_path(config_path: str | None) -> str:
@@ -375,6 +398,118 @@ def _resolve_live_model_name(request: SpecLoopRequest) -> str | None:
     if request.mode != "live":
         return request.model
     return request.model or os.environ.get(DEFAULT_FASTAGENT_MODEL_ENV) or request.preferred_model_backend or DEFAULT_LIVE_MODEL
+
+
+def _prepare_runtime_live_config(config_path: str, run_dir: Path) -> str:
+    source_path = Path(config_path)
+    original = source_path.read_text()
+    sanitized = _disable_console_logger_in_fastagent_config(original)
+    if sanitized == original:
+        return config_path
+
+    runtime_path = run_dir / "fastagent.runtime.yaml"
+    runtime_path.parent.mkdir(parents=True, exist_ok=True)
+    runtime_path.write_text(_ensure_trailing_newline(sanitized))
+    return str(runtime_path)
+
+
+def _disable_console_logger_in_fastagent_config(config_text: str) -> str:
+    logger_block = re.compile(
+        r"(?ms)^logger:\s*\n(?P<body>(?:^[ \t].*(?:\n|$))*)"
+    )
+    match = logger_block.search(config_text)
+    if not match:
+        base = config_text.rstrip()
+        return f"{base}\nlogger:\n  type: none\n"
+
+    body = match.group("body")
+    updated_body, replacements = re.subn(
+        r"(?m)^(?P<indent>[ \t]*)type:\s*console\s*$",
+        r"\g<indent>type: none",
+        body,
+        count=1,
+    )
+    if replacements:
+        return f"{config_text[:match.start('body')]}{updated_body}{config_text[match.end('body'):]}"
+
+    if re.search(r"(?m)^[ \t]*type:\s*\S+", body):
+        return config_text
+
+    inferred_indent = "  "
+    for line in body.splitlines():
+        stripped = line.lstrip()
+        if stripped:
+            inferred_indent = line[: len(line) - len(stripped)]
+            break
+    injected_body = f"{inferred_indent}type: none\n{body}"
+    return f"{config_text[:match.start('body')]}{injected_body}{config_text[match.end('body'):]}"
+
+
+def _build_live_topic_prompt(request: SpecLoopRequest) -> str:
+    lines = [
+        f"Title: {request.title}",
+        "",
+        "Primary objective:",
+        request.topic,
+    ]
+
+    if request.context:
+        lines.extend(["", "Context:", *(f"- {item}" for item in request.context)])
+
+    if request.constraints:
+        lines.extend(["", "Constraints:", *(f"- {item}" for item in request.constraints)])
+
+    if request.acceptance_criteria:
+        lines.extend(["", "Acceptance criteria:", *(f"- {item}" for item in request.acceptance_criteria)])
+
+    lines.extend(
+        [
+            "",
+            "Output requirements:",
+            "- Keep the spec implementation-ready and tightly scoped.",
+            "- Name the exact likely files and tests.",
+            "- Preserve existing contracts unless a correctness fix requires an explicit change.",
+        ]
+    )
+    return "\n".join(lines).strip()
+
+
+def _normalize_live_model_for_config(model: str | None, config_path: str) -> str | None:
+    if model is None:
+        return model
+
+    provider_prefixes = ("openai.", "anthropic.", "google.", "xai.")
+    if not model.startswith(provider_prefixes):
+        return model
+
+    try:
+        config_text = Path(config_path).read_text()
+    except OSError:
+        return model
+
+    if re.search(r"(?m)^\s*base_url:\s*https?://(?:127\.0\.0\.1|localhost|host\.docker\.internal):18642(?:/v1)?\s*$", config_text):
+        return model.split(".", 1)[1]
+    return model
+
+
+def _resolve_live_time_budget_seconds(request: SpecLoopRequest, resolved_model: str | None) -> float | None:
+    requested_budget = request.time_budget_seconds
+    if request.mode != "live":
+        return requested_budget
+
+    base_budget = 180.0
+    refinement_pairs = max(min(request.max_writer_turns, request.max_coach_turns) - 1, 0)
+    recommended_budget = base_budget + (refinement_pairs * 120.0)
+
+    model_name = (resolved_model or "").lower()
+    if model_name and "mini" not in model_name:
+        recommended_budget += 240.0
+
+    if requested_budget is None:
+        return recommended_budget
+    if requested_budget < 60.0:
+        return requested_budget
+    return max(requested_budget, recommended_budget)
 
 
 def _parse_live_markdown(request: SpecLoopRequest, markdown: str) -> ArtifactBundle:

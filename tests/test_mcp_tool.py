@@ -7,8 +7,17 @@ from pathlib import Path
 import anyio
 from mcp import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
+from mcp_agent.llm.model_factory import ModelFactory
 
-from but_dad.mcp_tool import SpecLoopRequest, run_spec_loop
+from but_dad.fast_agent_experiment import _patch_mcp_agent_model_registry
+from but_dad.mcp_tool import (
+    SpecLoopRequest,
+    _disable_console_logger_in_fastagent_config,
+    _normalize_live_model_for_config,
+    _prepare_runtime_live_config,
+    _resolve_live_time_budget_seconds,
+    run_spec_loop,
+)
 
 
 def test_run_spec_loop_preview_writes_expected_artifacts(tmp_path: Path) -> None:
@@ -375,3 +384,193 @@ Draft one
     assert "Recovered final spec." in (run_dir / "final-spec.md").read_text()
     assert "Draft one" in (run_dir / "transcript.md").read_text()
     assert (run_dir / "raw-live-output.md").exists()
+
+
+def test_prepare_runtime_live_config_disables_console_logger(tmp_path: Path) -> None:
+    source = tmp_path / "fastagent.yaml"
+    source.write_text(
+        "\n".join(
+            [
+                "default_model: openai.gpt-5.4",
+                "logger:",
+                "  type: console",
+                "  level: error",
+                "",
+            ]
+        )
+    )
+
+    runtime_path = Path(_prepare_runtime_live_config(str(source), tmp_path / "run"))
+
+    assert runtime_path != source
+    assert runtime_path.name == "fastagent.runtime.yaml"
+    runtime_text = runtime_path.read_text()
+    assert "type: none" in runtime_text
+    assert "type: console" not in runtime_text
+    assert "level: error" in runtime_text
+
+
+def test_disable_console_logger_in_fastagent_config_appends_logger_block_when_missing() -> None:
+    updated = _disable_console_logger_in_fastagent_config("default_model: openai.gpt-5.4\n")
+
+    assert updated.endswith("logger:\n  type: none\n")
+
+
+def test_normalize_live_model_for_local_malachi_config_strips_provider_prefix(tmp_path: Path) -> None:
+    config_path = tmp_path / "fastagent.yaml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "openai:",
+                "  base_url: http://127.0.0.1:18642/v1",
+                "",
+            ]
+        )
+    )
+
+    assert _normalize_live_model_for_config("openai.gpt-5.4", str(config_path)) == "gpt-5.4"
+    assert _normalize_live_model_for_config("gpt-5.4", str(config_path)) == "gpt-5.4"
+
+
+def test_patch_mcp_agent_model_registry_accepts_gpt5_family() -> None:
+    _patch_mcp_agent_model_registry()
+
+    parsed = ModelFactory.parse_model_string("gpt-5.4")
+    assert parsed.provider.value == "openai"
+    assert parsed.model_name == "gpt-5.4"
+
+
+def test_resolve_live_time_budget_seconds_uses_recommended_floor_for_full_model() -> None:
+    request = SpecLoopRequest(
+        topic="Verify a live run.",
+        mode="live",
+        max_writer_turns=1,
+        max_coach_turns=1,
+        time_budget_seconds=180,
+    )
+
+    assert _resolve_live_time_budget_seconds(request, "gpt-5.4") == 420.0
+
+
+def test_resolve_live_time_budget_seconds_keeps_mini_model_smoke_budget() -> None:
+    request = SpecLoopRequest(
+        topic="Verify a live run.",
+        mode="live",
+        max_writer_turns=1,
+        max_coach_turns=1,
+        time_budget_seconds=180,
+    )
+
+    assert _resolve_live_time_budget_seconds(request, "gpt-5.4-mini") == 180.0
+
+
+def test_resolve_live_time_budget_seconds_preserves_explicit_tiny_timeout() -> None:
+    request = SpecLoopRequest(
+        topic="Force a live timeout quickly.",
+        mode="live",
+        max_writer_turns=1,
+        max_coach_turns=1,
+        time_budget_seconds=0.01,
+    )
+
+    assert _resolve_live_time_budget_seconds(request, "gpt-5.4") == 0.01
+
+
+def test_resolve_live_time_budget_seconds_scales_for_extra_refinement_pairs() -> None:
+    request = SpecLoopRequest(
+        topic="Run a deeper live loop.",
+        mode="live",
+        max_writer_turns=3,
+        max_coach_turns=3,
+        time_budget_seconds=240,
+    )
+
+    assert _resolve_live_time_budget_seconds(request, "gpt-5.4") == 660.0
+
+
+def test_default_live_runner_passes_structured_request_prompt_to_live_experiment(
+    tmp_path: Path, monkeypatch
+) -> None:
+    captured: dict[str, object] = {}
+
+    async def fake_run_live_experiment(
+        topic: str,
+        output_path: Path,
+        config_path: str,
+        model: str,
+        loop,
+    ) -> str:
+        captured["topic"] = topic
+        captured["output_path"] = output_path
+        captured["config_path"] = config_path
+        captured["model"] = model
+        return """# Final spec
+
+## Objective
+Structured request received.
+
+# Writer transcript
+
+## Writer turn 1
+
+Draft one
+
+# Coach transcript
+
+## Coach turn 1
+
+Overall rating
+
+GOOD
+
+Blocking issues
+
+None.
+
+Recommended edits
+
+Ship it.
+
+Sources consulted
+- https://example.com/research/1
+
+# Source appendix
+
+- https://example.com/research/1
+
+# Run summary
+
+- terminal_status: success
+- completed_writer_turns: 1
+- completed_coach_turns: 1
+- final_assessment: Structured request completed cleanly.
+"""
+
+    monkeypatch.setattr("but_dad.mcp_tool.run_live_experiment", fake_run_live_experiment)
+    config_path = tmp_path / "fastagent.config.yaml"
+    config_path.write_text("agents: []\n")
+
+    result = run_spec_loop(
+        SpecLoopRequest(
+            topic="Tighten the PR #29 allowance-fix spec.",
+            title="PR #29 insurance upload allowance fixes",
+            run_name="structured-live-request",
+            output_dir=str(tmp_path),
+            mode="live",
+            config_path=str(config_path),
+            model="openai.gpt-5.4",
+            context=["Use prior review notes from local files."],
+            constraints=["Keep changes minimal.", "Name exact files."],
+            acceptance_criteria=["Call out refund behavior.", "List the exact tests."],
+            max_writer_turns=2,
+            max_coach_turns=2,
+        )
+    )
+
+    assert result.status == "success"
+    topic = str(captured["topic"])
+    assert "Title: PR #29 insurance upload allowance fixes" in topic
+    assert "Primary objective:\nTighten the PR #29 allowance-fix spec." in topic
+    assert "Context:\n- Use prior review notes from local files." in topic
+    assert "Constraints:\n- Keep changes minimal.\n- Name exact files." in topic
+    assert "Acceptance criteria:\n- Call out refund behavior.\n- List the exact tests." in topic
